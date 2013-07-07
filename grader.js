@@ -36,8 +36,20 @@ var assertFileExists = function(infile) {
     return instr;
 };
 
+var assertUrlValid = function(url) {
+   return url;
+}
+
+var getRemoteFile = function(url) {
+   return url;
+}
+
+var getLocalFile = function(path) {
+    return fs.readFileSync(path);
+}
+
 var cheerioHtmlFile = function(htmlfile) {
-    return cheerio.load(fs.readFileSync(htmlfile));
+    return cheerio.load(htmlfile);
 };
 
 var loadChecks = function(checksfile) {
@@ -65,8 +77,14 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u, --url <download_url>', 'URL to download html file', assertUrlValid, '') 
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
+
+    var fileToCheck = program.url != '' ? getRemoteFile(program.url) : getLocalFile(program.file);
+
+    console.log("file to check: " + fileToCheck);
+        process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
+    var checkJson = checkHtmlFile(fileToCheck, program.checks);
     var outJson = JSON.stringify(checkJson, null, 4);
     console.log(outJson);
 } else {
