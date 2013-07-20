@@ -24,6 +24,7 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
+var restler = require('restler');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
 
@@ -40,12 +41,18 @@ var assertUrlValid = function(url) {
    return url;
 }
 
-var getRemoteFile = function(url) {
-   return url;
+var getRemoteFile = function(url, callback) {
+   restler.get(url).on('complete', function(result) {
+       if (result instanceof Error) throw result;
+       callback(result);
+   });
 }
 
-var getLocalFile = function(path) {
-    return fs.readFileSync(path);
+var getLocalFile = function(path, callback) {
+    fs.readFile(path, 'utf-8', function(err, data) {
+	if (err) throw err;
+	callback(data);
+    });
 }
 
 var cheerioHtmlFile = function(htmlfile) {
@@ -73,6 +80,19 @@ var clone = function(fn) {
     return fn.bind({});
 };
 
+var doChecks = function(contentToCheck, checks) {
+    var checkJson = checkHtmlFile(contentToCheck, checks);
+    var outJson = JSON.stringify(checkJson, null, 4);
+    console.log(outJson);
+};
+
+var buildfn = function(checks) {
+    var response = function(data){
+	doChecks(data, checks);
+    };
+    return response;
+};
+
 if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
@@ -80,13 +100,13 @@ if(require.main == module) {
         .option('-u, --url <download_url>', 'URL to download html file', assertUrlValid, '') 
         .parse(process.argv);
 
-    var fileToCheck = program.url != '' ? getRemoteFile(program.url) : getLocalFile(program.file);
+    var handleResult = buildfn(program.checks); 
+    if (program.url == '') {
+	getLocalFile(program.file, handleResult);
+    } else {
+	getRemoteFile(program.url, handleResult);
+    }
 
-    console.log("file to check: " + fileToCheck);
-        process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
-    var checkJson = checkHtmlFile(fileToCheck, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
